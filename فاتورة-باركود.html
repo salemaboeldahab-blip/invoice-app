@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="فاتورة">
+<meta name="theme-color" content="#1b2430">
+<title>فاتورة بمسح الباركود</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<style>
+  :root{
+    --ink:#1b2430;
+    --paper:#faf6ec;
+    --paper-2:#f1ead8;
+    --line:#d7cdb2;
+    --gold:#b3791a;
+    --sage:#43604a;
+    --sage-d:#324a39;
+    --rust:#a2402f;
+    --muted:#8a8070;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Cairo',sans-serif;
+    background:
+      radial-gradient(circle at 15% 10%, #f6f0df 0%, transparent 45%),
+      var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding:28px 16px 60px;
+  }
+  .wrap{max-width:1100px;margin:0 auto;}
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:22px;flex-wrap:wrap;gap:10px;
+  }
+  header.top h1{
+    font-size:clamp(22px,3.6vw,30px);font-weight:800;margin:0;letter-spacing:.2px;
+  }
+  header.top h1 span{color:var(--gold);}
+  .tabs{display:flex;gap:8px;background:var(--paper-2);padding:5px;border-radius:12px;border:1px solid var(--line);}
+  .tab-btn{
+    border:none;background:transparent;padding:9px 18px;border-radius:9px;
+    font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted);
+    transition:.18s;
+  }
+  .tab-btn.active{background:var(--ink);color:var(--paper);}
+
+  .grid{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;align-items:start;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+
+  .card{
+    background:#fff;border:1px solid var(--line);border-radius:16px;
+    padding:20px;box-shadow:0 1px 0 rgba(0,0,0,.03);
+  }
+  .card h2{font-size:16px;font-weight:800;margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+  .card h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;}
+
+  /* --- scanner --- */
+  #video-box{position:relative;border-radius:12px;overflow:hidden;background:#0e1420;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;}
+  #video-box video{width:100%;height:100%;object-fit:cover;display:none;}
+  #video-box.live video{display:block;}
+  .scan-frame{position:absolute;inset:14%;border:2px solid rgba(255,255,255,.55);border-radius:14px;pointer-events:none;}
+  .scan-hint{color:#c9d2e0;font-size:13px;text-align:center;padding:0 20px;}
+  .btn{
+    border:none;border-radius:10px;padding:11px 16px;font-family:inherit;font-weight:700;
+    font-size:14px;cursor:pointer;transition:.15s;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--ink);color:var(--paper);}
+  .btn-primary:hover{background:#2b3444;}
+  .btn-sage{background:var(--sage);color:#fff;}
+  .btn-sage:hover{background:var(--sage-d);}
+  .btn-rust{background:transparent;color:var(--rust);}
+  .btn-rust:hover{background:#fbeceA;}
+  .btn-ghost{background:var(--paper-2);color:var(--ink);}
+  .btn-ghost:hover{background:var(--line);}
+  .btn-block{width:100%;}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+  input, select{
+    font-family:inherit;border:1px solid var(--line);border-radius:9px;padding:10px 12px;
+    font-size:14px;width:100%;background:#fffdf9;color:var(--ink);
+  }
+  input:focus, select:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  label{font-size:12.5px;color:var(--muted);font-weight:700;margin-bottom:5px;display:block;}
+  .field{margin-bottom:12px;}
+
+  .product-preview{
+    display:flex;gap:14px;align-items:center;background:var(--paper-2);
+    border:1px dashed var(--line);border-radius:12px;padding:12px;margin:14px 0;
+  }
+  .product-preview img, .product-preview .ph{
+    width:64px;height:64px;border-radius:10px;object-fit:cover;background:#eee2c6;
+    display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;
+  }
+  .product-preview .info{flex:1;}
+  .product-preview .info b{display:block;font-size:15px;}
+  .product-preview .price{color:var(--gold);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;}
+  .empty-note{color:var(--muted);font-size:13.5px;text-align:center;padding:8px 6px;}
+
+  /* --- receipt --- */
+  .receipt-shell{
+    background:#fffdf9;border-radius:16px;padding:0;overflow:hidden;
+    border:1px solid var(--line);position:relative;
+  }
+  .receipt-head{
+    padding:20px 22px 14px;text-align:center;border-bottom:1px dashed var(--line);
+    background-image:repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.05) 6px 7px);
+    background-size:14px 4px;background-position:top;background-repeat:repeat-x;background-color:transparent;
+  }
+  .receipt-head h3{margin:0 0 4px;font-size:18px;font-weight:800;}
+  .receipt-head span{font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+  .receipt-body{padding:10px 22px 4px;max-height:400px;overflow-y:auto;}
+  .line-item{
+    display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px dotted var(--line);
+  }
+  .line-item .name{flex:1;font-weight:700;font-size:14.5px;}
+  .line-item .meta{font-size:12px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+  .line-item .sub{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--ink);min-width:74px;text-align:left;}
+  .line-item .del{background:none;border:none;color:var(--rust);cursor:pointer;font-size:16px;padding:2px 6px;}
+  .receipt-empty{padding:34px 10px;text-align:center;color:var(--muted);font-size:14px;}
+  .receipt-total{
+    padding:16px 22px 20px;display:flex;justify-content:space-between;align-items:center;
+    border-top:1px dashed var(--line);
+  }
+  .receipt-total .lbl{font-weight:800;font-size:15px;}
+  .receipt-total .val{font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:22px;color:var(--gold);}
+  .receipt-actions{padding:0 22px 22px;display:flex;gap:10px;}
+
+  /* --- product management table --- */
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  th{text-align:right;font-size:12px;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);}
+  td{padding:8px;border-bottom:1px solid var(--paper-2);vertical-align:middle;}
+  td img, td .ph{width:38px;height:38px;border-radius:8px;object-fit:cover;background:#eee2c6;display:inline-flex;align-items:center;justify-content:center;font-size:16px;}
+  .qr-tag{font-family:'IBM Plex Mono',monospace;background:var(--paper-2);padding:2px 7px;border-radius:6px;font-size:12px;}
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:10px;
+    font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.25s;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+  .hidden{display:none !important;}
+  .small-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>فاتورة <span>سريعة</span> بالباركود</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="sell">البيع</button>
+      <button class="tab-btn" data-tab="manage">إدارة المنتجات</button>
+    </div>
+  </header>
+
+  <!-- ======= SELL TAB ======= -->
+  <div id="tab-sell" class="grid">
+
+    <div class="card">
+      <h2><span class="dot"></span> مسح المنتج</h2>
+      <div id="video-box">
+        <video id="video" playsinline muted></video>
+        <div class="scan-frame hidden" id="scanFrame"></div>
+        <div class="scan-hint" id="scanHint">اضغط "تشغيل الكاميرا" لبدء المسح، أو أدخل كود المنتج يدويًا بالأسفل.</div>
+      </div>
+      <canvas id="canvas" class="hidden"></canvas>
+      <div style="margin-top:12px;" class="row">
+        <button class="btn btn-primary" id="camToggle">تشغيل الكاميرا</button>
+        <button class="btn btn-ghost" id="manualToggle">إدخال يدوي</button>
+      </div>
+
+      <div id="manualBox" class="hidden" style="margin-top:12px;">
+        <div class="field">
+          <label>كود المنتج (QR)</label>
+          <input id="manualCode" placeholder="مثال: P-1024" />
+        </div>
+        <button class="btn btn-ghost btn-block" id="manualLookup">بحث</button>
+      </div>
+
+      <div id="previewBox"></div>
+
+      <div id="qtyBox" class="hidden">
+        <div class="field">
+          <label>الكمية المباعة</label>
+          <input type="number" id="qtyInput" value="1" min="1" step="1">
+        </div>
+        <button class="btn btn-sage btn-block" id="addToInvoice">إضافة إلى الفاتورة</button>
+      </div>
+    </div>
+
+    <div class="receipt-shell">
+      <div class="receipt-head">
+        <h3>الفاتورة الحالية</h3>
+        <span id="invoiceMeta">لا يوجد أصناف بعد</span>
+      </div>
+      <div class="receipt-body" id="invoiceBody">
+        <div class="receipt-empty">امسح أول منتج عشان تبدأ الفاتورة 🧾</div>
+      </div>
+      <div class="receipt-total">
+        <div class="lbl">الإجمالي</div>
+        <div class="val" id="grandTotal">0.00 ج.م</div>
+      </div>
+      <div class="receipt-actions">
+        <button class="btn btn-ghost" style="flex:1" id="newInvoice">فاتورة جديدة</button>
+        <button class="btn btn-primary" style="flex:1" id="printInvoice">طباعة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= MANAGE TAB ======= -->
+  <div id="tab-manage" class="grid hidden">
+    <div class="card">
+      <h2><span class="dot"></span> إضافة / تعديل منتج</h2>
+      <div class="field">
+        <label>كود QR الخاص بالمنتج</label>
+        <input id="pCode" placeholder="مثال: P-1024">
+      </div>
+      <div class="field">
+        <label>اسم المنتج</label>
+        <input id="pName" placeholder="مثال: زيت عباد الشمس 1 لتر">
+      </div>
+      <div class="field">
+        <label>السعر (ج.م)</label>
+        <input id="pPrice" type="number" step="0.01" placeholder="مثال: 85">
+      </div>
+      <div class="field">
+        <label>رابط صورة المنتج (اختياري)</label>
+        <input id="pImg" placeholder="https://...">
+      </div>
+      <button class="btn btn-sage btn-block" id="saveProduct">حفظ المنتج</button>
+      <p class="small-note">لو الكود موجود بالفعل هيتم تحديث بيانات نفس المنتج بدل ما يتضاف مكرر.</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="dot"></span> قائمة المنتجات</h2>
+      <table>
+        <thead><tr><th></th><th>الاسم</th><th>الكود</th><th>السعر</th><th></th></tr></thead>
+        <tbody id="productsTable"></tbody>
+      </table>
+      <p class="empty-note hidden" id="noProducts">لا يوجد منتجات مضافة بعد.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let products = [];
+let invoice = []; // {code,name,price,img,qty}
+let stream = null;
+let scanning = false;
+let currentPreviewProduct = null;
+
+const $ = (id) => document.getElementById(id);
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ---------- storage ----------
+async function loadProducts(){
+  try{
+    const res = await window.storage.get('products', false);
+    products = res && res.value ? JSON.parse(res.value) : [];
+  }catch(e){ products = []; }
+  renderProductsTable();
+}
+async function saveProducts(){
+  try{
+    await window.storage.set('products', JSON.stringify(products), false);
+  }catch(e){ console.error('storage error', e); }
+}
+
+// ---------- tabs ----------
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    $('tab-sell').classList.toggle('hidden', tab!=='sell');
+    $('tab-manage').classList.toggle('hidden', tab!=='manage');
+    if(tab!=='sell') stopCamera();
+  });
+});
+
+// ---------- product management ----------
+function renderProductsTable(){
+  const tbody = $('productsTable');
+  tbody.innerHTML = '';
+  $('noProducts').classList.toggle('hidden', products.length>0);
+  products.forEach((p, idx)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.img ? `<img src="${escapeHtml(p.img)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'📦'}))">` : `<div class="ph">📦</div>`}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td><span class="qr-tag">${escapeHtml(p.code)}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;">${p.price.toFixed(2)}</td>
+      <td><button class="btn-rust btn" style="padding:6px 10px;font-size:12px;" data-idx="${idx}">حذف</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button[data-idx]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      products.splice(+b.dataset.idx,1);
+      saveProducts();
+      renderProductsTable();
+      toast('اتحذف المنتج');
+    });
+  });
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+$('saveProduct').addEventListener('click', async ()=>{
+  const code = $('pCode').value.trim();
+  const name = $('pName').value.trim();
+  const price = parseFloat($('pPrice').value);
+  const img = $('pImg').value.trim();
+  if(!code || !name || isNaN(price)){
+    toast('من فضلك املأ الكود والاسم والسعر');
+    return;
+  }
+  const existing = products.findIndex(p=>p.code===code);
+  const record = {code, name, price, img};
+  if(existing>=0) products[existing] = record;
+  else products.push(record);
+  await saveProducts();
+  renderProductsTable();
+  $('pCode').value=''; $('pName').value=''; $('pPrice').value=''; $('pImg').value='';
+  toast(existing>=0 ? 'اتحدث المنتج' : 'اتضاف المنتج بنجاح');
+});
+
+// ---------- lookup + preview ----------
+function findProduct(code){
+  return products.find(p=>p.code.toLowerCase()===String(code).trim().toLowerCase());
+}
+
+function showPreview(product){
+  currentPreviewProduct = product;
+  const box = $('previewBox');
+  if(!product){
+    box.innerHTML = `<div class="empty-note" style="margin-top:14px;">مفيش منتج بالكود ده. تقدر تضيفه من تبويب "إدارة المنتجات".</div>`;
+    $('qtyBox').classList.add('hidden');
+    return;
+  }
+  box.innerHTML = `
+    <div class="product-preview">
+      ${product.img ? `<img src="${escapeHtml(product.img)}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:'📦'}))">` : `<div class="ph">📦</div>`}
+      <div class="info">
+        <b>${escapeHtml(product.name)}</b>
+        <span class="price">${product.price.toFixed(2)} ج.م</span>
+      </div>
+    </div>
+  `;
+  $('qtyInput').value = 1;
+  $('qtyBox').classList.remove('hidden');
+}
+
+$('addToInvoice').addEventListener('click', ()=>{
+  if(!currentPreviewProduct) return;
+  const qty = parseInt($('qtyInput').value) || 1;
+  if(qty<=0){ toast('الكمية لازم تكون أكبر من صفر'); return; }
+  const existing = invoice.find(l=>l.code===currentPreviewProduct.code);
+  if(existing) existing.qty += qty;
+  else invoice.push({...currentPreviewProduct, qty});
+  renderInvoice();
+  toast('اتضاف للفاتورة ✔');
+  $('previewBox').innerHTML='';
+  $('qtyBox').classList.add('hidden');
+  currentPreviewProduct = null;
+  $('manualCode').value='';
+});
+
+// manual lookup
+$('manualToggle').addEventListener('click', ()=>{
+  $('manualBox').classList.toggle('hidden');
+});
+$('manualLookup').addEventListener('click', ()=>{
+  const code = $('manualCode').value.trim();
+  if(!code){ toast('اكتب الكود الأول'); return; }
+  showPreview(findProduct(code));
+});
+
+// ---------- invoice ----------
+function renderInvoice(){
+  const body = $('invoiceBody');
+  if(invoice.length===0){
+    body.innerHTML = `<div class="receipt-empty">امسح أول منتج عشان تبدأ الفاتورة 🧾</div>`;
+    $('invoiceMeta').textContent = 'لا يوجد أصناف بعد';
+    $('grandTotal').textContent = '0.00 ج.م';
+    return;
+  }
+  body.innerHTML = '';
+  let total = 0;
+  invoice.forEach((l, idx)=>{
+    const sub = l.qty * l.price;
+    total += sub;
+    const row = document.createElement('div');
+    row.className='line-item';
+    row.innerHTML = `
+      <div style="flex:1">
+        <div class="name">${escapeHtml(l.name)}</div>
+        <div class="meta">${l.qty} × ${l.price.toFixed(2)}</div>
+      </div>
+      <div class="sub">${sub.toFixed(2)}</div>
+      <button class="del" data-idx="${idx}" title="حذف الصنف">✕</button>
+    `;
+    body.appendChild(row);
+  });
+  body.querySelectorAll('.del').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      invoice.splice(+b.dataset.idx,1);
+      renderInvoice();
+    });
+  });
+  $('invoiceMeta').textContent = `${invoice.length} صنف`;
+  $('grandTotal').textContent = `${total.toFixed(2)} ج.م`;
+}
+
+$('newInvoice').addEventListener('click', ()=>{
+  if(invoice.length && !confirm('هتبدأ فاتورة جديدة وهتتمسح الحالية، متأكد؟')) return;
+  invoice = [];
+  renderInvoice();
+});
+
+$('printInvoice').addEventListener('click', ()=>{
+  if(invoice.length===0){ toast('الفاتورة فاضية'); return; }
+  const rows = invoice.map(l=>`<tr><td>${escapeHtml(l.name)}</td><td>${l.qty}</td><td>${l.price.toFixed(2)}</td><td>${(l.qty*l.price).toFixed(2)}</td></tr>`).join('');
+  const total = invoice.reduce((s,l)=>s+l.qty*l.price,0).toFixed(2);
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html dir="rtl"><head><meta charset="utf-8"><title>فاتورة</title>
+    <style>
+      body{font-family:sans-serif;padding:24px;}
+      table{width:100%;border-collapse:collapse;margin-top:16px;}
+      th,td{border-bottom:1px solid #ccc;padding:8px;text-align:right;}
+      .total{margin-top:16px;font-size:18px;font-weight:bold;text-align:left;}
+    </style></head><body>
+    <h2>فاتورة</h2>
+    <table><thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="total">الإجمالي الكلي: ${total} ج.م</div>
+    </body></html>
+  `);
+  w.document.close();
+  w.print();
+});
+
+// ---------- camera + QR scanning ----------
+const video = $('video');
+const canvas = $('canvas');
+const ctx = canvas.getContext('2d');
+
+async function startCamera(){
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+    await video.play();
+    $('video-box').classList.add('live');
+    $('scanFrame').classList.remove('hidden');
+    $('scanHint').classList.add('hidden');
+    $('camToggle').textContent = 'إيقاف الكاميرا';
+    scanning = true;
+    requestAnimationFrame(tick);
+  }catch(e){
+    toast('مش قادر أوصل للكاميرا، جرب الإدخال اليدوي');
+  }
+}
+function stopCamera(){
+  scanning = false;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  $('video-box').classList.remove('live');
+  $('scanFrame').classList.add('hidden');
+  $('scanHint').classList.remove('hidden');
+  $('camToggle').textContent = 'تشغيل الكاميرا';
+}
+$('camToggle').addEventListener('click', ()=>{
+  if(scanning) stopCamera(); else startCamera();
+});
+
+let lastScan = 0;
+function tick(){
+  if(!scanning) return;
+  if(video.readyState === video.HAVE_ENOUGH_DATA){
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if(code && code.data && Date.now()-lastScan > 1200){
+      lastScan = Date.now();
+      const product = findProduct(code.data);
+      showPreview(product);
+      if(product){ toast('تم التعرف على المنتج ✔'); }
+      else { toast('كود غير معروف: ' + code.data); }
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// ---------- init ----------
+loadProducts();
+renderInvoice();
+</script>
+</body>
+</html>
